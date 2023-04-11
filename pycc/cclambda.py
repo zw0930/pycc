@@ -320,6 +320,20 @@ class cclambda(object):
         r1 = self.r_L1(o, v, l1, l2, Hov, Hvv, Hoo, Hovvo, Hovov, Hvvvo, Hovoo, Hvovv, Hooov, Gvv, Goo)
         r2 = self.r_L2(o, v, l1, l2, L, Hov, Hvv, Hoo, Hoooo, Hvvvv, Hovvo, Hovov, Hvvvo, Hovoo, Hvovv, Hooov, Gvv, Goo)
 
+        # Additional term in l1 when subjected to a perturbation
+        # Useful in RT-CC2
+        if (self.ccwfn.model == 'CC2') & (self.ccwfn.real_time is True):
+            if isinstance(t1, torch.Tensor):
+                V = F - self.ccwfn.H.F.clone()
+            else:
+                V = F - self.ccwfn.H.F.copy()
+            Vov = self.ccwfn.build_Fme(o, v, V, L, t1)
+            tmp = contract('bi,jkbc->jkic', Vov, t2)
+            tmp_l1 = 0.5 * contract('jkic,jkac->ia', tmp, l2)
+            tmp = contract('ikbc,jkbc->ij', l2, t2)
+            tmp_l1 += 0.5 * contract('aj,ij->ia', Vov, tmp)
+            r1 += tmp_l1             
+
         if self.ccwfn.model == 'CC3':   
             # Intermediates for t3
             Fov = self.ccwfn.build_Fme(o, v, F, L, t1)

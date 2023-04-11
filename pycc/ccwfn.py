@@ -85,6 +85,8 @@ class ccwfn(object):
         # models requiring T1-transformed integrals
         self.need_t1_transform = ['CC3']
 
+        self.real_time = kwargs.pop('real_time', False)
+
         self.make_t3_density = kwargs.pop('make_t3_density', False)
 
         valid_local_models = [None, 'PNO', 'PAO','PNO++']
@@ -325,7 +327,7 @@ class ccwfn(object):
             if niter >= start_diis:
                 self.t1, self.t2 = diis.extrapolate(self.t1, self.t2)
 
-    def residuals(self, F, t1, t2):
+    def residuals(self, F, t1, t2, real_time=False):
         """
         Parameters
         ----------
@@ -335,6 +337,9 @@ class ccwfn(object):
             Current T1 amplitudes
         t2: NumPy array
             Current T2 amplitudes
+        real_rime: Boolean 
+            True if running a real-time (RT) calculation
+            when an external perturbation is present 
 
         Returns
         -------
