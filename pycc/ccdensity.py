@@ -8,7 +8,7 @@ if __name__ == "__main__":
 import time
 import numpy as np
 import torch
-from .cctriples import t3c_ijk, t3c_abc, l3_ijk, l3_abc, t3c_bc, l3_bc 
+from .cctriples import t3c_ijk, t3c_abc, l3_ijk, l3_abc, t3c_bc, l3_bc, t3_pert_ijk, t3_pert_bc 
 
 class ccdensity(object):
     """
@@ -152,7 +152,7 @@ class ccdensity(object):
 
         return ecc
 
-    def compute_onepdm(self, t1, t2, l1, l2, withref=False):
+    def compute_onepdm(self, t1, t2, l1, l2, withref=False, real_time=False):
         """
         Parameters
         ----------
@@ -210,15 +210,15 @@ class ccdensity(object):
             Wvovv = self.ccwfn.build_cc3_Wamef(o, v, ERI, t1)
             Wooov = self.ccwfn.build_cc3_Wmnie(o, v, ERI, t1)
 
-            opdm[o,v] += self.build_cc3_Dov(o, v, no, nv, F, L, t1, t2, l1, l2, Wvvvo, Wovoo, Fov, Wvovv, Wooov)
+            opdm[o,v] += self.build_cc3_Dov(o, v, no, nv, F, L, t1, t2, l1, l2, Wvvvo, Wovoo, Fov, Wvovv, Wooovi, real_time=real_time)
 
             # Density matrix blocks in contractions with T1-transformed dipole integrals
             if isinstance(t1, torch.Tensor):
                 opdm_cc3 = torch.zeros_like(opdm)
             else:
                 opdm_cc3 = np.zeros_like(opdm)
-            opdm_cc3[o,o] += self.build_cc3_Doo(o, v, no, nv, F, L, t2, l1, l2, Fov, Wvvvo, Wovoo, Wvovv, Wooov)
-            opdm_cc3[v,v] += self.build_cc3_Dvv(o, v, no, nv, F, L, t2, l1, l2, Fov, Wvvvo, Wovoo, Wvovv, Wooov)
+            opdm_cc3[o,o] += self.build_cc3_Doo(o, v, no, nv, F, L, t2, l1, l2, Fov, Wvvvo, Wovoo, Wvovv, Wooov, real_time=real_time)
+            opdm_cc3[v,v] += self.build_cc3_Dvv(o, v, no, nv, F, L, t2, l1, l2, Fov, Wvvvo, Wovoo, Wvovv, Wooov, real_time=real_time)
 
             return (opdm, opdm_cc3)
 
@@ -288,7 +288,7 @@ class ccdensity(object):
         return Dov
 
     # CC3 contributions to the one electron densities
-    def build_cc3_Dov(self, o, v, no, nv, F, L, t1, t2, l1, l2, Wvvvo, Wovoo, Fov, Wvovv, Wooov):
+    def build_cc3_Dov(self, o, v, no, nv, F, L, t1, t2, l1, l2, Wvvvo, Wovoo, Fov, Wvovv, Wooov, real_time=False):
         contract = self.contract  
         if isinstance(t1, torch.Tensor):
             Dov = torch.zeros_like(t1)   
@@ -304,13 +304,19 @@ class ccdensity(object):
                     Zlmdi[i,j] += contract('def,ife->di', l3, t2[k])
                     # Dov_1
                     t3 = t3c_ijk(o, v, i, j, k, t2, Wvvvo, Wovoo, F, contract)
+                    if real_time is True:
+                        if isinstance(t1, torch.Tensor):
+                            V = F - self.ccwfn.H.F.clone()
+                        else:
+                            V = F - self.ccwfn.H.F.copy()
+                        t3 -= t3_pert_ijk(o, v, i, j, k, t2, V, F, contract)
                     Dov[i] +=  contract('abc,bc->a', t3 - t3.swapaxes(0,1), l2[j,k])
         # Dov_2
         Dov -= contract('lmdi, lmda->ia', Zlmdi, t2)
 
         return Dov
                                     
-    def build_cc3_Doo(self, o, v, no, nv, F, L, t2, l1, l2, Fov, Wvvvo, Wovoo, Wvovv, Wooov):
+    def build_cc3_Doo(self, o, v, no, nv, F, L, t2, l1, l2, Fov, Wvvvo, Wovoo, Wvovv, Wooovi, real_time=False):
         contract = self.contract
         if isinstance(l1, torch.Tensor):
             Doo = torch.zeros_like(l1[:,:no])
@@ -319,12 +325,18 @@ class ccdensity(object):
         for b in range(nv): 
             for c in range(nv):
                 t3 = t3c_bc(o, v, b, c, t2, Wvvvo, Wovoo, F, contract)
+                if real_time is True:
+                    if isinstance(t2, torch.Tensor):
+                        V = F - self.ccwfn.H.F.clone()
+                    else:
+                        V = F - self.ccwfn.H.F.copy()
+                    t3 -= t3_pert_bc(o, v, b, c, t2, V, F, contract)
                 l3 = l3_bc(b, c, o, v, L, l1, l2, Fov, Wvovv, Wooov, F, contract)
                 Doo -= 0.5 * contract('lmia,lmja->ij', t3, l3)        
 
         return Doo        
 
-    def build_cc3_Dvv(self, o, v, no, nv, F, L, t2, l1, l2, Fov, Wvvvo, Wovoo, Wvovv, Wooov):
+    def build_cc3_Dvv(self, o, v, no, nv, F, L, t2, l1, l2, Fov, Wvvvo, Wovoo, Wvovv, Wooov, real_time=False):
         contract = self.contract
         if isinstance(l1, torch.Tensor):
             Dvv = torch.zeros_like(l1)
@@ -336,6 +348,12 @@ class ccdensity(object):
             for j in range(no):
                 for k in range(no):
                     t3 = t3c_ijk(o, v, i, j, k, t2, Wvvvo, Wovoo, F, contract)
+                    if real_time is True:
+                        if isinstance(t2, torch.Tensor):
+                            V = F - self.ccwfn.H.F.clone()
+                        else:
+                            V = F - self.ccwfn.H.F.copy()
+                        t3 -= t3_pert_ijk(o, v, i, j, k, t2, V, F, contract)
                     l3 = l3_ijk(i, j, k, o, v, L, l1, l2, Fov, Wvovv, Wooov, F, contract)
                     Dvv += 0.5 * contract('bdc,adc->ab', t3, l3)
 
