@@ -351,7 +351,7 @@ class cclambda(object):
                                 V = F - self.ccwfn.H.F.clone()
                             else:
                                 V = F - self.ccwfn.H.F.copy()
-                            t3 -= t3_pert_ijk(o, v, l, m, n, t2, V, F, contract)
+                            t3_lmn -= t3_pert_ijk(o, v, l, m, n, t2, V, F, contract)
                         Zmndi[m,n] += contract('def,ief->di', t3_lmn, ERI[o,l,v,v])
                         Zmndi[m,n] -= contract('fed,ief->di', t3_lmn, L[o,l,v,v])
                         Zmdfa[m] += contract('def,ea->dfa', t3_lmn, ERI[n,l,v,v])
@@ -398,7 +398,7 @@ class cclambda(object):
                                 V = F - self.ccwfn.H.F.clone()
                             else:
                                 V = F - self.ccwfn.H.F.copy()
-                            t3 -= t3_pert_ijk(o, v, l, m, n, t2, V, F, contract)   
+                            t3_lmn -= t3_pert_ijk(o, v, l, m, n, t2, V, F, contract)   
                         Znf[n] += contract('de,def->f', l2[l,m], (t3_lmn - t3_lmn.swapaxes(0,2)))          
             for m in range(no):
                 Y1 += contract('idf,dfa->ia', l2[:,m], Zmdfa[m])

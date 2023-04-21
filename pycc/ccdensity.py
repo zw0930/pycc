@@ -210,7 +210,7 @@ class ccdensity(object):
             Wvovv = self.ccwfn.build_cc3_Wamef(o, v, ERI, t1)
             Wooov = self.ccwfn.build_cc3_Wmnie(o, v, ERI, t1)
 
-            opdm[o,v] += self.build_cc3_Dov(o, v, no, nv, F, L, t1, t2, l1, l2, Wvvvo, Wovoo, Fov, Wvovv, Wooovi, real_time=real_time)
+            opdm[o,v] += self.build_cc3_Dov(o, v, no, nv, F, L, t1, t2, l1, l2, Wvvvo, Wovoo, Fov, Wvovv, Wooov, real_time=real_time)
 
             # Density matrix blocks in contractions with T1-transformed dipole integrals
             if isinstance(t1, torch.Tensor):
@@ -316,7 +316,7 @@ class ccdensity(object):
 
         return Dov
                                     
-    def build_cc3_Doo(self, o, v, no, nv, F, L, t2, l1, l2, Fov, Wvvvo, Wovoo, Wvovv, Wooovi, real_time=False):
+    def build_cc3_Doo(self, o, v, no, nv, F, L, t2, l1, l2, Fov, Wvvvo, Wovoo, Wvovv, Wooov, real_time=False):
         contract = self.contract
         if isinstance(l1, torch.Tensor):
             Doo = torch.zeros_like(l1[:,:no])
@@ -412,6 +412,9 @@ class ccdensity(object):
                 Dooov += contract('jake,ie->ijka', tmp, t1)
                 tmp = contract('imea,kmef->iakf', t2, l2)
                 Dooov += contract('iakf,jf->ijka', tmp, t1)
+                
+                if isinstance(tmp, torch.Tensor):
+                    del tmp, Goo
 
             tmp = contract('kmef,jf->kmej', l2, t1)
             tmp = contract('kmej,ie->kmij', tmp, t1)
@@ -422,8 +425,7 @@ class ccdensity(object):
                 Dooov += self.ccwfn.Gooov
             
             if isinstance(tmp, torch.Tensor):
-                del tmp
-                del Goo
+                del tmp               
 
         return Dooov
 
@@ -463,6 +465,9 @@ class ccdensity(object):
                 Dvvvo -= contract('iamc,mb->abci', tmp, t1)
                 tmp = contract('mibe,nmce->ibnc', t2, l2)
                 Dvvvo -= contract('ibnc,na->abci', tmp, t1)
+  
+                if isinstance(tmp, torch.Tensor):
+                    del tmp, Gvv
 
             tmp = contract('nmce,ie->nmci', l2, t1)
             tmp = contract('nmci,na->amci', tmp, t1)
@@ -474,7 +479,6 @@ class ccdensity(object):
 
             if isinstance(tmp, torch.Tensor):
                 del tmp
-                del Gvv
 
         return Dvvvo
 
@@ -583,6 +587,9 @@ class ccdensity(object):
                 tmp = contract('mnei,njae->mija', tmp, t2)
                 Doovv += contract('mb,mija->ijab', t1, tmp)
 
+                if isinstance(tmp, torch.Tensor):
+                    del tmp, tmp1, tmp2, Goo, Gvv
+
             tmp = contract('jf,mnef->mnej', t1, l2)
             tmp = contract('ie,mnej->mnij', t1, tmp)
             tmp = contract('nb,mnij->mbij', t1, tmp)
@@ -593,7 +600,7 @@ class ccdensity(object):
                 Doovv += self.ccwfn.Goovv
 
             if isinstance(tmp, torch.Tensor):
-                del tmp, tmp1, tmp2, Goo, Gvv
+                del tmp
 
         return Doovv
 
